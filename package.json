@@ -1,0 +1,18 @@
+{
+  "name": "socket-conflits-contributors",
+  "version": "1.0.0",
+  "description": "Filter objects with a team &amp; CHAT",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
