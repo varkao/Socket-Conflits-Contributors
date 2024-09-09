@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filter Popup App</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <style>
+        .grid-item {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin: 10px;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            transition: box-shadow 0.3s ease;
+            text-align: center;
+        }
+        .grid-item:hover {
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+        .grid-item.disabled {
+            pointer-events: none;
+            border: 2px solid #f00;
+        }
+        .grid-item.active {
+            pointer-events: none;
+            border: 2px solid #0f0;
+        }
+        .grid-item img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .image-comparison {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .image-comparison img {
+            max-width: 100px;
+            height: auto;
+        }
+        .arrow {
+            width: 30px;
+            height: 30px;
+            background: url('https://img.icons8.com/ios-filled/50/000000/long-arrow-right.png') no-repeat center center;
+            background-size: contain;
+            margin: 0 10px;
+        }
+        .pagination {
+            display: ruby;
+            margin: 20px 0;
+        }
+        .disabled-btn {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <!-- Filter Buttons -->
+        <div class="mb-4">
+            <p><span id="username">...</span></p>
+        </div>
+        <div class="mb-4">
+            <button id="filterAll" class="btn btn-primary">All</button>
+            <button id="filterToAdd" class="btn btn-success">To Add</button>
+            <button id="filterToRemove" class="btn btn-danger">To Remove</button>
+            <button id="filterNonVote" class="btn btn-secondary">Non Vote</button>
+        </div>
+
+        <div class="mb-4">
+            <a href="/logout" style="position: fixed; top: 200px; left: 0; border-radius: 0; width: 50px; height: 50px; text-align: center; display: flex; align-items: center; justify-content: center;" class="btn btn-danger">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>            
+        </div>
+
+        <!-- Grid Container -->
+        <div id="grid-container" class="row">
+            <!-- Grid items will be dynamically generated here -->
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination">
+            <nav aria-label="Page navigation">
+                <ul id="pagination" class="pagination">
+                    <!-- Page numbers will be dynamically generated here -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Popup Modal -->
+    <div class="modal fade" id="popupModal" tabindex="-1" role="dialog" aria-labelledby="popupModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="popupModalLabel">Item Action</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <button id="addButton" class="btn btn-success">Add</button>
+                    <button id="removeButton" class="btn btn-danger">Remove</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentPage = 1;
+        const itemsPerPage = 12;
+        let allItems = [];
+        let filteredItems = [];
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        $(document).ready(function() {
+            const username = getCookie('username');
+            if (username) {
+                document.getElementById('username').textContent = `Welcome, ${username}!`;
+            } else {
+                document.getElementById('username').textContent = 'Welcome, Guest!';
+            }
+
+            function loadItems() {
+                fetch('/data')
+                    .then(response => response.json())
+                    .then(data => {
+                        allItems = [...data.conflits, ...data.itemsNew.familliers, ...data.itemsNew.harnachs];
+                        filteredItems = [...allItems]; // Start with all items
+                        renderItems();
+                        renderPagination();
+                    });
+            }
+
+            function renderItems() {
+                const gridContainer = $('#grid-container');
+                gridContainer.empty();
+
+                const itemsToDisplay = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+                itemsToDisplay.forEach(item => {
+                    const gridItem = `
+                        <div class="col-md-4">
+                            <div class="grid-item ${item.status ? item.status : ''}" data-id="${item.id}" data-status="${item.status}">
+                                <div class="image-comparison">
+                                    ${item.img_old ? `<img src="${item.img_old}" alt="${item.name_old}"> <div class="arrow"></div>` : ''}
+                                    <img src="${item.img}" alt="${item.name}">
+                                </div>
+                                ${item.name_old ? `<p><b>Old Name:</b> ${item.name_old}</p>` : ''}
+                                <p><b>New Name:</b> ${item.name}</p>
+                                <p><b>Type:</b> ${item.type}</p>
+                                ${item.editor ? `<p><b>Edited By:</b> ${item.editor}</p>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    gridContainer.append(gridItem);
+                });
+            }
+
+            function renderPagination() {
+                const pagination = $('#pagination');
+                const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+                pagination.empty();
+
+                for (let i = 1; i <= totalPages; i++) {
+                    const pageItem = `
+                        <li class="page-item ${i === currentPage ? 'active' : ''}">
+                            <button class="page-link" data-page="${i}">${i}</button>
+                        </li>
+                    `;
+                    pagination.append(pageItem);
+                }
+            }
+
+            $('#pagination').on('click', '.page-link', function() {
+                currentPage = $(this).data('page');
+                renderItems();
+                renderPagination();
+            });
+
+            $('#filterAll').click(() => {
+                filteredItems = [...allItems];
+                currentPage = 1;
+                renderItems();
+                renderPagination();
+            });
+
+            $('#filterToAdd').click(() => {
+                filteredItems = allItems.filter(item => item.status === 'active');
+                currentPage = 1;
+                renderItems();
+                renderPagination();
+            });
+
+            $('#filterToRemove').click(() => {
+                filteredItems = allItems.filter(item => item.status === 'disabled');
+                currentPage = 1;
+                renderItems();
+                renderPagination();
+            });
+
+            $('#filterNonVote').click(() => {
+                filteredItems = allItems.filter(item => !item.status);
+                currentPage = 1;
+                renderItems();
+                renderPagination();
+            });
+
+            // Handle item click events
+            $('#grid-container').on('click', '.grid-item', function() {
+                const selectedItemId = $(this).data('id');
+                const selectedItemStatus = $(this).data('status');
+                
+                $('#popupModal').modal('show');
+                $('#addButton').data('id', selectedItemId);
+                $('#removeButton').data('id', selectedItemId);
+            });
+
+            $('#addButton').click(function() {
+                const itemId = $(this).data('id');
+                if (!$(this).hasClass('disabled-btn')) {
+                    socket.emit('itemAction', { id: itemId, action: 'add' });
+                    $('#popupModal').modal('hide');
+                }
+            });
+
+            $('#removeButton').click(function() {
+                const itemId = $(this).data('id');
+                if (!$(this).hasClass('disabled-btn')) {
+                    socket.emit('itemAction', { id: itemId, action: 'remove' });
+                    $('#popupModal').modal('hide');
+                }
+            });
+
+            // Handle real-time updates
+            socket.on('updateGrid', function(data) {
+                allItems.forEach(item => {
+                    if (item.id === data.id) {
+                        if (data.action === 'add') {
+                            item.status = 'active';
+                        } else if (data.action === 'remove') {
+                            item.status = 'disabled';
+                        }
+                        item.editor = data.username;
+                    }
+                });
+                filteredItems = [...allItems];
+                renderItems();
+                renderPagination();
+            });
+
+            loadItems(); // Initial load
+        });
+    </script>
+</body>
+</html>
