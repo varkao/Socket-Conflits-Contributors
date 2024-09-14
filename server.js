@@ -37,6 +37,7 @@ app.get('/data', (req, res) => {
     const sessionId = req.cookies.sessionId || uuidv4();
 
     if (username && sessionId && connectedClients[username] === sessionId) {
+        loadItems();
         res.json(items);
     } else {
         res.json([]);
@@ -125,6 +126,8 @@ io.on('connection', (socket) => {
                 // Save the updated items to the JSON file
                 saveItems();
 
+                console.log("(RCV) update:", item.editor, item.name);
+
                 // Broadcast the updated item to all clients
                 io.emit('updateGrid', { id, username, action });
             }
@@ -138,6 +141,6 @@ io.on('connection', (socket) => {
     }
 });
 
-server.listen(3000, () => {
-    console.log('Server is running on http://localhost:3000');
+server.listen(80, () => {
+    console.log('Server is running on http://localhost:80');
 });

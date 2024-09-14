@@ -12,7 +12,6 @@
             border: 1px solid #ccc;
             padding: 20px;
             margin: 10px;
-            cursor: pointer;
             position: relative;
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
             transition: box-shadow 0.3s ease;
@@ -22,11 +21,9 @@
             box-shadow: 0 0 15px rgba(0,0,0,0.3);
         }
         .grid-item.disabled {
-            pointer-events: none;
             border: 2px solid #f00;
         }
         .grid-item.active {
-            pointer-events: none;
             border: 2px solid #0f0;
         }
         .grid-item img {
@@ -59,25 +56,42 @@
             pointer-events: none;
             opacity: 0.5;
         }
+        .sidebar {
+            position: fixed;
+            top: 100px;
+            left: 0;
+            width: 200px;
+            height: 100%;
+            background-color: #f8f9fa;
+            padding: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        .sidebar .filter-btn {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .content {
+            margin-left: 220px;
+            max-width: 80%;
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <!-- Filter Buttons -->
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h5>Filter by Type</h5>
+        <button id="filterAll" class="btn btn-primary filter-btn">All</button>
+        <button id="filterToAdd" class="btn btn-success filter-btn">To Add</button>
+        <button id="filterToRemove" class="btn btn-danger filter-btn">To Remove</button>
+        <button id="filterNonVote" class="btn btn-secondary filter-btn">Non Vote</button>
+        <a href="/logout" class="btn btn-danger mt-3" style="width: 100%;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mt-5 content">
+        <!-- User Greeting -->
         <div class="mb-4">
             <p><span id="username">...</span></p>
-        </div>
-        <div class="mb-4">
-            <button id="filterAll" class="btn btn-primary">All</button>
-            <button id="filterToAdd" class="btn btn-success">To Add</button>
-            <button id="filterToRemove" class="btn btn-danger">To Remove</button>
-            <button id="filterNonVote" class="btn btn-secondary">Non Vote</button>
-        </div>
-
-        <div class="mb-4">
-            <a href="/logout" style="position: fixed; top: 200px; left: 0; border-radius: 0; width: 50px; height: 50px; text-align: center; display: flex; align-items: center; justify-content: center;" class="btn btn-danger">
-                <i class="fas fa-sign-out-alt"></i>
-            </a>            
         </div>
 
         <!-- Grid Container -->
@@ -92,24 +106,6 @@
                     <!-- Page numbers will be dynamically generated here -->
                 </ul>
             </nav>
-        </div>
-    </div>
-
-    <!-- Popup Modal -->
-    <div class="modal fade" id="popupModal" tabindex="-1" role="dialog" aria-labelledby="popupModalLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="popupModalLabel">Item Action</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <button id="addButton" class="btn btn-success">Add</button>
-                    <button id="removeButton" class="btn btn-danger">Remove</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -157,16 +153,16 @@
 
                 itemsToDisplay.forEach(item => {
                     const gridItem = `
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="grid-item ${item.status ? item.status : ''}" data-id="${item.id}" data-status="${item.status}">
                                 <div class="image-comparison">
-                                    ${item.img_old ? `<img src="${item.img_old}" alt="${item.name_old}"> <div class="arrow"></div>` : ''}
                                     <img src="${item.img}" alt="${item.name}">
                                 </div>
-                                ${item.name_old ? `<p><b>Old Name:</b> ${item.name_old}</p>` : ''}
-                                <p><b>New Name:</b> ${item.name}</p>
-                                <p><b>Type:</b> ${item.type}</p>
-                                ${item.editor ? `<p><b>Edited By:</b> ${item.editor}</p>` : ''}
+                                <p>${item.name}</p>
+                                <div class="btn-group mt-3" role="group">
+                                    <button class="btn btn-success add-btn ${item.status === 'active' ? 'disabled-btn' : ''}" data-id="${item.id}">Add</button>
+                                    <button class="btn btn-danger remove-btn ${item.status === 'disabled' ? 'disabled-btn' : ''}" data-id="${item.id}">Remove</button>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -223,29 +219,18 @@
                 renderPagination();
             });
 
-            // Handle item click events
-            $('#grid-container').on('click', '.grid-item', function() {
-                const selectedItemId = $(this).data('id');
-                const selectedItemStatus = $(this).data('status');
-                
-                $('#popupModal').modal('show');
-                $('#addButton').data('id', selectedItemId);
-                $('#removeButton').data('id', selectedItemId);
-            });
-
-            $('#addButton').click(function() {
+            // Handle add/remove button clicks
+            $('#grid-container').on('click', '.add-btn', function() {
                 const itemId = $(this).data('id');
                 if (!$(this).hasClass('disabled-btn')) {
                     socket.emit('itemAction', { id: itemId, action: 'add' });
-                    $('#popupModal').modal('hide');
                 }
             });
 
-            $('#removeButton').click(function() {
+            $('#grid-container').on('click', '.remove-btn', function() {
                 const itemId = $(this).data('id');
                 if (!$(this).hasClass('disabled-btn')) {
                     socket.emit('itemAction', { id: itemId, action: 'remove' });
-                    $('#popupModal').modal('hide');
                 }
             });
 
@@ -261,12 +246,12 @@
                         item.editor = data.username;
                     }
                 });
-                filteredItems = [...allItems];
                 renderItems();
                 renderPagination();
             });
 
-            loadItems(); // Initial load
+            // Load initial data
+            loadItems();
         });
     </script>
 </body>
